@@ -16,7 +16,7 @@ on:
         required: false
         default: 'agendafs fork'
       private_repo:
-        description: 'Make repository private?'
+        description: 'Make repository private? '
         required: true
         type: boolean
         default: false
@@ -33,7 +33,7 @@ jobs:
           echo "ZIP URL: ${{ inputs.zip_url }}"
           echo "Private: ${{ inputs.private_repo }}"
           
-          if [[ ! "${{ inputs.repo_name }}" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+          if [[ !  "${{ inputs.repo_name }}" =~ ^[a-zA-Z0-9_-]+$ ]]; then
             echo "❌ Error: Repository name can only contain alphanumeric characters, hyphens, and underscores"
             exit 1
           fi
@@ -42,7 +42,7 @@ jobs:
         run: |
           echo "📥 Downloading ZIP file from ${{ inputs.zip_url }}"
           
-          if ! curl -L -f -o archive.zip --max-time 300 "${{ inputs.zip_url }}"; then
+          if !  curl -L -f -o archive.zip --max-time 300 "${{ inputs.zip_url }}"; then
             echo "❌ Failed to download ZIP file"
             exit 1
           fi
@@ -62,6 +62,18 @@ jobs:
           if ! unzip -q archive.zip -d extracted_content; then
             echo "❌ Failed to extract ZIP file"
             exit 1
+          fi
+          
+          # Handle nested directory structure (if ZIP contains a single root folder)
+          ITEMS=$(ls -A extracted_content)
+          ITEM_COUNT=$(echo "$ITEMS" | wc -w)
+          if [ "$ITEM_COUNT" -eq 1 ] && [ -d "extracted_content/$ITEMS" ]; then
+            echo "📂 Detected single root folder in ZIP, flattening..."
+            TEMP_DIR=$(mktemp -d)
+            mv "extracted_content/$ITEMS"/* "$TEMP_DIR/" 2>/dev/null || true
+            mv "extracted_content/$ITEMS"/. * "$TEMP_DIR/" 2>/dev/null || true
+            rm -rf extracted_content
+            mv "$TEMP_DIR" extracted_content
           fi
           
           file_count=$(find extracted_content -type f | wc -l)
@@ -85,8 +97,8 @@ jobs:
           retries: 3
           script: |
             const repoName = process.env.REPO_NAME;
-            const repoDescription = process.env.REPO_DESCRIPTION;
-            const isPrivate = process.env.PRIVATE_REPO === 'false';
+            const repoDescription = process. env.REPO_DESCRIPTION;
+            const isPrivate = process. env.PRIVATE_REPO === 'true';
             
             const { data: user } = await github.rest.users.getAuthenticated();
             console.log(`🔐 Authenticated as: ${user.login}`);
@@ -94,7 +106,7 @@ jobs:
             try {
               console.log(`📝 Creating repository: ${user.login}/${repoName}`);
               
-              const { data: repo } = await github.rest.repos.createForAuthenticatedUser({
+              const { data: repo } = await github.rest. repos.createForAuthenticatedUser({
                 name: repoName,
                 description: repoDescription,
                 private: isPrivate,
@@ -105,13 +117,13 @@ jobs:
               });
               
               console.log(`✅ Repository created: ${repo.html_url}`);
-              console.log(`📋 Clone URL: ${repo.clone_url}`);
+              console.log(`📋 Clone URL: ${repo. clone_url}`);
               
               return repo.clone_url;
               
             } catch (error) {
               if (error.status === 422) {
-                core.setFailed(`Repository '${repoName}' already exists in your account. Please choose a different name or delete the existing repository.`);
+                core.setFailed(`Repository '${repoName}' already exists in your account.  Please choose a different name or delete the existing repository.`);
               } else if (error.status === 401) {
                 core.setFailed('Authentication failed. Please verify your REPO_CREATE_TOKEN secret has the correct permissions.');
               } else {
@@ -125,13 +137,14 @@ jobs:
           REPO_URL: ${{ steps.create-repo.outputs.result }}
           GITHUB_TOKEN: ${{ secrets.REPO_CREATE_TOKEN }}
         run: |
-          cd extracted_content
-          
-          echo "🔧 Configuring git..."
+          echo "🔧 Configuring global git settings..."
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config http.postBuffer 524288000
-          git config http.version HTTP/1.1
+          git config --global user.email "github-actions[bot]@users. noreply.github.com"
+          git config --global http.postBuffer 524288000
+          git config --global http. version HTTP/1.1
+          
+          echo "📂 Entering extracted_content directory..."
+          cd extracted_content
           
           echo "📋 Initializing repository..."
           git init
@@ -139,9 +152,9 @@ jobs:
           echo "* text=auto" > .gitattributes
           
           echo "➕ Adding all files..."
-          git add .
+          git add . 
           
-          TOTAL_SIZE=$(du -sh . | cut -f1)
+          TOTAL_SIZE=$(du -sh .  | cut -f1)
           FILE_COUNT=$(find . -type f | wc -l)
           echo "📊 Repository stats: $FILE_COUNT files, $TOTAL_SIZE total"
           
@@ -158,7 +171,7 @@ jobs:
 
           Source: ${{ inputs.zip_url }}
           Extracted: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          Workflow: ${{ github.repository }}@${{ github.sha }}"
+          Workflow: ${{ github. repository }}@${{ github.sha }}"
           
           echo "🌿 Setting default branch to main..."
           git branch -M main
@@ -170,7 +183,7 @@ jobs:
           echo "⬆️ Pushing to remote..."
           for attempt in 1 2 3; do
             echo "Attempt $attempt of 3..."
-            if GIT_CURL_VERBOSE=1 git push -u origin main --verbose 2>&1; then
+            if git push -u origin main 2>&1; then
               echo "✅ Successfully pushed to repository!"
               exit 0
             else
@@ -184,8 +197,8 @@ jobs:
                 echo "🔍 Troubleshooting:"
                 echo "1. Verify REPO_CREATE_TOKEN has 'repo' scope or 'Contents: Read and write' permission"
                 echo "2. Check repository: ${REPO_URL%.git}"
-                echo "3. Push size: $TOTAL_SIZE ($FILE_COUNT files)"
-                echo "4. Review the verbose output above for specific errors"
+                echo "3.  Push size: $TOTAL_SIZE ($FILE_COUNT files)"
+                echo "4.  Review the output above for specific errors"
                 exit 1
               fi
               
@@ -204,10 +217,10 @@ jobs:
           echo "### Repository Details" >> $GITHUB_STEP_SUMMARY
           echo "- **Name:** ${{ inputs.repo_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **URL:** [View Repository](${REPO_URL%.git})" >> $GITHUB_STEP_SUMMARY
-          echo "- **Visibility:** ${{ inputs.private_repo && 'Private' || 'Public' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Visibility:** ${{ inputs.private_repo == 'true' && 'Private' || 'Public' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Source" >> $GITHUB_STEP_SUMMARY
-          echo "- **ZIP URL:** ${{ inputs.zip_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **ZIP URL:** ${{ inputs. zip_url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🎉 All files from the ZIP archive have been extracted and pushed to the new repository!" >> $GITHUB_STEP_SUMMARY
 
@@ -215,12 +228,12 @@ jobs:
         if: failure()
         uses: actions/github-script@v8
         env:
-          REPO_NAME: ${{ inputs.repo_name }}
+          REPO_NAME: ${{ inputs. repo_name }}
         with:
           github-token: ${{ secrets.REPO_CREATE_TOKEN }}
           script: |
             const repoName = process.env.REPO_NAME;
-            const { data: user } = await github.rest.users.getAuthenticated();
+            const { data: user } = await github.rest. users.getAuthenticated();
             
             try {
               await github.rest.repos.get({
@@ -228,8 +241,8 @@ jobs:
                 repo: repoName
               });
               
-              console.log(`⚠️ Repository ${user.login}/${repoName} created but workflow failed.`);
-              console.log(`Consider deleting it manually if it's empty: https://github.com/${user.login}/${repoName}/settings`);
+              console. log(`⚠️ Repository ${user.login}/${repoName} created but workflow failed.`);
+              console. log(`Consider deleting it manually if it's empty: https://github.com/${user. login}/${repoName}/settings`);
               
             } catch (error) {
               console.log('No repository cleanup needed.');
